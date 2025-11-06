@@ -7,10 +7,21 @@ on:
         description: "Aerolab release version (if omitted, latest)"
         required: false
         type: string
-      aerolab_cmd:
-        description: "Command to run inside Aerolab (after ENTRYPOINT)"
-        required: true
+      nodes:
+        description: "Number of cluster nodes"
+        required: false
+        type: number
+        default: 3
+      cluster_name:
+        description: "Name of the cluster"
+        required: false
         type: string
+        default: "ce"
+      aerospike_version:
+        description: "Aerolab/Aerospike version"
+        required: false
+        type: string
+        default: "8.1.0.1"
 
 jobs:
   run-aerolab:
@@ -22,40 +33,36 @@ jobs:
         options: >-
           --privileged
           --env DOCKER_TLS_CERTDIR=
+
     env:
       DOCKER_HOST: tcp://localhost:2375
       DOCKER_TLS_CERTDIR: ""
 
     steps:
-      - name: Install GitHub CLI
-        uses: actions/setup-gh@v2
-        with:
-          version: latest
+      - name: Checkout (needed if calling from repo)
+        uses: actions/checkout@v3
 
-      - name: Determine Aerolab Download URL
-        id: geturl
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl jq
+
+      - name: Download Aerolab .deb from GitHub
+        id: download
         run: |
           if [ -z "${{ inputs.version }}" ]; then
             echo "Fetching latest release..."
-            ASSET_URL=$(gh release view \
-              --repo aerospike/aerolab \
-              --json assets \
-              --jq '.assets[] | select(.name | endswith(".deb")).url')
+            URL=$(curl -s https://api.github.com/repos/aerospike/aerolab/releases/latest \
+                 | jq -r '.assets[] | select(.name | endswith(".deb")).browser_download_url')
           else
-            echo "Fetching release ${{ inputs.version }}"
-            ASSET_URL=$(gh release view ${{ inputs.version }} \
-              --repo aerospike/aerolab \
-              --json assets \
-              --jq '.assets[] | select(.name | endswith(".deb")).url')
+            echo "Fetching release tag: ${{ inputs.version }}"
+            URL=$(curl -s https://api.github.com/repos/aerospike/aerolab/releases/tags/${{ inputs.version }} \
+                 | jq -r '.assets[] | select(.name | endswith(".deb")).browser_download_url')
           fi
-          echo "asset_url=$ASSET_URL" >> $GITHUB_OUTPUT
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          echo "Downloading $URL"
+          curl -L -o aerolab.deb "$URL"
 
-      - name: Download Aerolab .deb
-        run: curl -L -o aerolab.deb "${{ steps.geturl.outputs.asset_url }}"
-
-      - name: Build Aerolab Docker Image
+      - name: Build Aerolab Docker image
         run: |
           cat > Dockerfile <<'EOF'
           FROM ubuntu:24.04
@@ -68,6 +75,10 @@ jobs:
           EOF
           docker build -t aerolab-runner:latest .
 
-      - name: Run Aerolab Command
-        run: docker run --privileged --rm aerolab-runner:latest ${{ inputs.aerolab_cmd }}
-
+      - name: Run Aerolab commands
+        run: |
+          docker run --privileged --rm aerolab-runner:latest config backend -t docker
+          docker run --privileged --rm aerolab-runner:latest cluster create \
+            -v "${{ inputs.aerospike_version }}" \
+            -c "${{ inputs.nodes }}" \
+            -n "${{ inputs.cluster_name }}"
