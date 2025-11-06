@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       aerospike_version:
-        description: "Aerospike version (e.g., 8.1.0.1)"
+        description: "Aerospike version (used for cluster creation)"
         required: false
         type: string
         default: "8.1.0.1"
@@ -41,20 +41,13 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y curl jq
+          sudo apt-get install -y curl
 
-      - name: Download Aerolab .deb
-        id: download
+      - name: Download Aerolab .deb (hardcoded)
         run: |
-          # Hardcode Aerolab package version
-          AEROLAB_DEB_VERSION="7.9.0"
-          echo "Downloading Aerolab release $AEROLAB_DEB_VERSION (amd64)"
-          URL=$(curl -s https://api.github.com/repos/aerospike/aerolab/releases/tags/$AEROLAB_DEB_VERSION \
-          | jq -r '.assets[] | select(.name | endswith(".deb") and (.name | contains("amd64")) ).browser_download_url')
-          echo "Downloading $URL"
-          curl -L -o aerolab.deb "$URL"
+          echo "Downloading Aerolab 7.9.0 (amd64)"
+          curl -L -o aerolab.deb https://github.com/aerospike/aerolab/releases/download/7.9.0/aerolab-linux-amd64-7.9.0.deb
 
-      
       - name: Build Aerolab Docker image
         run: |
           cat > Dockerfile <<'EOF'
