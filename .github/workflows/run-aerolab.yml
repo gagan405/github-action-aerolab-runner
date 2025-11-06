@@ -3,25 +3,21 @@ name: "Run Aerolab with Commands"
 on:
   workflow_call:
     inputs:
-      version:
-        description: "Aerolab release version (if omitted, latest)"
-        required: false
-        type: string
-      nodes:
-        description: "Number of cluster nodes"
-        required: false
-        type: number
-        default: 3
-      cluster_name:
-        description: "Name of the cluster"
-        required: false
-        type: string
-        default: "ce"
       aerospike_version:
-        description: "Aerolab/Aerospike version"
+        description: "Aerospike version (e.g., 8.1.0.1)"
         required: false
         type: string
         default: "8.1.0.1"
+      nodes:
+        description: "Number of cluster nodes"
+        required: false
+        type: string
+        default: "3"
+      cluster_name:
+        description: "Cluster name"
+        required: false
+        type: string
+        default: "ce"
 
 jobs:
   run-aerolab:
@@ -39,7 +35,7 @@ jobs:
       DOCKER_TLS_CERTDIR: ""
 
     steps:
-      - name: Checkout (needed if calling from repo)
+      - name: Checkout (needed if calling from another repo)
         uses: actions/checkout@v3
 
       - name: Install dependencies
@@ -47,18 +43,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y curl jq
 
-      - name: Download Aerolab .deb from GitHub
+      - name: Download Aerolab .deb
         id: download
         run: |
-          if [ -z "${{ inputs.version }}" ]; then
-            echo "Fetching latest release..."
-            URL=$(curl -s https://api.github.com/repos/aerospike/aerolab/releases/latest \
-                 | jq -r '.assets[] | select(.name | endswith(".deb")).browser_download_url')
-          else
-            echo "Fetching release tag: ${{ inputs.version }}"
-            URL=$(curl -s https://api.github.com/repos/aerospike/aerolab/releases/tags/${{ inputs.version }} \
-                 | jq -r '.assets[] | select(.name | endswith(".deb")).browser_download_url')
-          fi
+          echo "Fetching release ${{ inputs.aerospike_version }}"
+          URL=$(curl -s https://api.github.com/repos/aerospike/aerolab/releases/tags/${{ inputs.aerospike_version }} \
+               | jq -r '.assets[] | select(.name | endswith(".deb")).browser_download_url')
           echo "Downloading $URL"
           curl -L -o aerolab.deb "$URL"
 
@@ -75,7 +65,7 @@ jobs:
           EOF
           docker build -t aerolab-runner:latest .
 
-      - name: Run Aerolab commands
+      - name: Run Aerolab cluster
         run: |
           docker run --privileged --rm aerolab-runner:latest config backend -t docker
           docker run --privileged --rm aerolab-runner:latest cluster create \
