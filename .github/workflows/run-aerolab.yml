@@ -19,8 +19,9 @@ jobs:
     services:
       docker:
         image: docker:dind
-        privileged: true
-        options: --privileged --env DOCKER_TLS_CERTDIR=
+        options: >-
+          --privileged
+          --env DOCKER_TLS_CERTDIR=
     env:
       DOCKER_HOST: tcp://localhost:2375
       DOCKER_TLS_CERTDIR: ""
