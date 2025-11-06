@@ -1,0 +1,70 @@
+name: "Run Aerolab with Commands"
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "Aerolab release version (if omitted, latest)"
+        required: false
+        type: string
+      aerolab_cmd:
+        description: "Command to run inside Aerolab (after ENTRYPOINT)"
+        required: true
+        type: string
+
+jobs:
+  run-aerolab:
+    runs-on: ubuntu-latest
+
+    services:
+      docker:
+        image: docker:dind
+        privileged: true
+        options: --privileged --env DOCKER_TLS_CERTDIR=
+    env:
+      DOCKER_HOST: tcp://localhost:2375
+      DOCKER_TLS_CERTDIR: ""
+
+    steps:
+      - name: Install GitHub CLI
+        uses: cli/cli@v3
+
+      - name: Determine Aerolab Download URL
+        id: geturl
+        run: |
+          if [ -z "${{ inputs.version }}" ]; then
+            echo "Fetching latest release..."
+            ASSET_URL=$(gh release view \
+              --repo aerospike/aerolab \
+              --json assets \
+              --jq '.assets[] | select(.name | endswith(".deb")).url')
+          else
+            echo "Fetching release ${{ inputs.version }}"
+            ASSET_URL=$(gh release view ${{ inputs.version }} \
+              --repo aerospike/aerolab \
+              --json assets \
+              --jq '.assets[] | select(.name | endswith(".deb")).url')
+          fi
+          echo "asset_url=$ASSET_URL" >> $GITHUB_OUTPUT
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download Aerolab .deb
+        run: curl -L -o aerolab.deb "${{ steps.geturl.outputs.asset_url }}"
+
+      - name: Build Aerolab Docker Image
+        run: |
+          cat > Dockerfile <<'EOF'
+          FROM ubuntu:24.04
+          WORKDIR /aerolab
+          COPY aerolab.deb /tmp/
+          RUN apt-get update && \
+              apt-get install -y /tmp/aerolab.deb && \
+              rm -rf /tmp/aerolab.deb /var/lib/apt/lists/*
+          ENTRYPOINT ["aerolab"]
+          EOF
+          docker build -t aerolab-runner:latest .
+
+      - name: Run Aerolab Command
+        run: docker run --privileged --rm aerolab-runner:latest ${{ inputs.aerolab_cmd }}
+
