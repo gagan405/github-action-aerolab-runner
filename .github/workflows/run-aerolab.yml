@@ -28,7 +28,9 @@ jobs:
 
     steps:
       - name: Install GitHub CLI
-        uses: cli/cli@v3
+        uses: actions/setup-gh@v2
+        with:
+          version: latest
 
       - name: Determine Aerolab Download URL
         id: geturl
