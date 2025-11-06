@@ -46,15 +46,15 @@ jobs:
       - name: Download Aerolab .deb
         id: download
         run: |
-         # Hardcode the Aerolab package version
-         AEROLAB_DEB_VERSION="7.9.0"
-         echo "Downloading Aerolab release $AEROLAB_DEB_VERSION"
-         URL=$(curl -s https://api.github.com/repos/aerospike/aerolab/releases/tags/$AEROLAB_DEB_VERSION \
-         | jq -r '.assets[] | select(.name | endswith(".deb")).browser_download_url')
-         echo "Downloading $URL"
-         curl -L -o aerolab.deb "$URL"
-      
+          # Hardcode Aerolab package version
+          AEROLAB_DEB_VERSION="7.9.0"
+          echo "Downloading Aerolab release $AEROLAB_DEB_VERSION (amd64)"
+          URL=$(curl -s https://api.github.com/repos/aerospike/aerolab/releases/tags/$AEROLAB_DEB_VERSION \
+          | jq -r '.assets[] | select(.name | endswith(".deb") and (.name | contains("amd64")) ).browser_download_url')
+          echo "Downloading $URL"
+          curl -L -o aerolab.deb "$URL"
 
+      
       - name: Build Aerolab Docker image
         run: |
           cat > Dockerfile <<'EOF'
