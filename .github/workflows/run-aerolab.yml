@@ -4,10 +4,10 @@ on:
   workflow_call:
     inputs:
       aerospike_version:
-        description: "Aerolab version (e.g., 7.9.0)"
+        description: "Aerospike version (e.g., 8.1.0.1)"
         required: false
         type: string
-        default: "7.9.0"
+        default: "8.1.0.1"
       nodes:
         description: "Number of cluster nodes"
         required: false
@@ -46,11 +46,14 @@ jobs:
       - name: Download Aerolab .deb
         id: download
         run: |
-          echo "Fetching release ${{ inputs.aerospike_version }}"
-          URL=$(curl -s https://api.github.com/repos/aerospike/aerolab/releases/tags/${{ inputs.aerospike_version }} \
-               | jq -r '.assets[] | select(.name | endswith(".deb")).browser_download_url')
-          echo "Downloading $URL"
-          curl -L -o aerolab.deb "$URL"
+         # Hardcode the Aerolab package version
+         AEROLAB_DEB_VERSION="7.9.0"
+         echo "Downloading Aerolab release $AEROLAB_DEB_VERSION"
+         URL=$(curl -s https://api.github.com/repos/aerospike/aerolab/releases/tags/$AEROLAB_DEB_VERSION \
+         | jq -r '.assets[] | select(.name | endswith(".deb")).browser_download_url')
+         echo "Downloading $URL"
+         curl -L -o aerolab.deb "$URL"
+      
 
       - name: Build Aerolab Docker image
         run: |
