@@ -4,10 +4,10 @@ on:
   workflow_call:
     inputs:
       aerospike_version:
-        description: "Aerospike version (e.g., 8.1.0.1)"
+        description: "Aerolab version (e.g., 7.9.0)"
         required: false
         type: string
-        default: "8.1.0.1"
+        default: "7.9.0"
       nodes:
         description: "Number of cluster nodes"
         required: false
