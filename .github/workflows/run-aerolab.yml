@@ -22,14 +22,18 @@ on:
 jobs:
   run-aerolab:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
 
-      - name: Install curl
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
         run: sudo apt-get update && sudo apt-get install -y curl
 
-      - name: Download Aerolab .deb
-        run: curl -L -o aerolab.deb https://github.com/aerospike/aerolab/releases/download/7.9.0/aerolab-linux-amd64-7.9.0.deb
+      - name: Download Aerolab .deb (hardcoded)
+        run: |
+          echo "Downloading Aerolab 7.9.0 (amd64)"
+          curl -L -o aerolab.deb https://github.com/aerospike/aerolab/releases/download/7.9.0/aerolab-linux-amd64-7.9.0.deb
 
       - name: Build Aerolab Docker image
         run: |
@@ -40,13 +44,26 @@ jobs:
           RUN apt-get update && \
               apt-get install -y /tmp/aerolab.deb && \
               rm -rf /tmp/aerolab.deb /var/lib/apt/lists/*
+          ENV AEROLAB_HOME=/aerolab-home
           ENTRYPOINT ["aerolab"]
           EOF
 
           docker build -t aerolab-runner:latest .
 
-      - name: Run Aerolab cluster
+      - name: Run Aerolab commands
         run: |
-          docker run --privileged --rm aerolab-runner:latest config backend -t docker
-          docker run --privileged --rm aerolab-runner:latest cluster create \
-            -v "8.1.0.1" -c "3" -n "ce"
+          # Ensure config and cluster run in the same Aerolab home
+          mkdir -p /tmp/aerolab-home
+
+          docker run --privileged --rm \
+            -e AEROLAB_HOME=/tmp/aerolab-home \
+            -v /tmp/aerolab-home:/tmp/aerolab-home \
+            aerolab-runner:latest config backend -t docker
+
+          docker run --privileged --rm \
+            -e AEROLAB_HOME=/tmp/aerolab-home \
+            -v /tmp/aerolab-home:/tmp/aerolab-home \
+            aerolab-runner:latest cluster create \
+              -v "${{ inputs.aerospike_version }}" \
+              -c "${{ inputs.nodes }}" \
+              -n "${{ inputs.cluster_name }}"
