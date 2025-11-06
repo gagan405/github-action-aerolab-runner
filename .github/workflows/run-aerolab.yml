@@ -59,3 +59,18 @@ jobs:
             -v "${{ inputs.aerospike_version }}" \
             -c "${{ inputs.nodes }}" \
             -n "${{ inputs.cluster_name }}"
+
+      - name: Validate cluster list
+        id: list
+        run: |
+          export AEROLAB_HOME=/tmp/aerolab-home
+          echo "Listing clusters..."
+          aerolab cluster list | tee cluster-list.txt
+
+      - name: Show cluster list output as job summary
+        run: |
+          echo "## Aerolab Cluster Created ✅" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '````' >> $GITHUB_STEP_SUMMARY
+          cat cluster-list.txt >> $GITHUB_STEP_SUMMARY
+          echo '````' >> $GITHUB_STEP_SUMMARY
