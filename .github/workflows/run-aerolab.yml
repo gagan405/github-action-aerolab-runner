@@ -4,7 +4,7 @@ on:
   workflow_call:
     inputs:
       aerospike_version:
-        description: "Aerospike version (used for cluster creation)"
+        description: "Aerospike version for cluster creation"
         required: false
         type: string
         default: "8.1.0.1"
@@ -35,18 +35,25 @@ jobs:
       DOCKER_TLS_CERTDIR: ""
 
     steps:
-      - name: Checkout (needed if calling from another repo)
+      - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y curl
+        run: sudo apt-get update && sudo apt-get install -y curl
 
       - name: Download Aerolab .deb (hardcoded)
         run: |
           echo "Downloading Aerolab 7.9.0 (amd64)"
           curl -L -o aerolab.deb https://github.com/aerospike/aerolab/releases/download/7.9.0/aerolab-linux-amd64-7.9.0.deb
+
+      - name: Wait for Docker-in-Docker
+        run: |
+          echo "Waiting for Docker daemon to be ready..."
+          for i in {1..30}; do
+            docker info && break
+            echo "Docker not ready yet... waiting 1s"
+            sleep 1
+          done
 
       - name: Build Aerolab Docker image
         run: |
@@ -59,6 +66,7 @@ jobs:
               rm -rf /tmp/aerolab.deb /var/lib/apt/lists/*
           ENTRYPOINT ["aerolab"]
           EOF
+
           docker build -t aerolab-runner:latest .
 
       - name: Run Aerolab cluster
