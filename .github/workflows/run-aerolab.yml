@@ -28,42 +28,34 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Install dependencies
-        run: sudo apt-get update && sudo apt-get install -y curl
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y curl
 
-      - name: Download Aerolab .deb (hardcoded)
+      - name: Download Aerolab .deb
         run: |
           echo "Downloading Aerolab 7.9.0 (amd64)"
           curl -L -o aerolab.deb https://github.com/aerospike/aerolab/releases/download/7.9.0/aerolab-linux-amd64-7.9.0.deb
 
-      - name: Build Aerolab Docker image
+      - name: Install Aerolab
         run: |
-          cat > Dockerfile <<'EOF'
-          FROM ubuntu:24.04
-          WORKDIR /aerolab
-          COPY aerolab.deb /tmp/
-          RUN apt-get update && \
-              apt-get install -y /tmp/aerolab.deb && \
-              rm -rf /tmp/aerolab.deb /var/lib/apt/lists/*
-          ENV AEROLAB_HOME=/aerolab-home
-          ENTRYPOINT ["aerolab"]
-          EOF
+          sudo dpkg -i aerolab.deb
+          sudo apt-get install -f -y  # in case of missing dependencies
 
-          docker build -t aerolab-runner:latest .
-
-      - name: Run Aerolab commands
+      - name: Prepare Aerolab home
         run: |
-          # Ensure config and cluster run in the same Aerolab home
           mkdir -p /tmp/aerolab-home
+          export AEROLAB_HOME=/tmp/aerolab-home
 
-          docker run --privileged --rm \
-            -e AEROLAB_HOME=/tmp/aerolab-home \
-            -v /tmp/aerolab-home:/tmp/aerolab-home \
-            aerolab-runner:latest config backend -t docker
+      - name: Configure Aerolab backend
+        run: |
+          export AEROLAB_HOME=/tmp/aerolab-home
+          aerolab config backend -t docker
 
-          docker run --privileged --rm \
-            -e AEROLAB_HOME=/tmp/aerolab-home \
-            -v /tmp/aerolab-home:/tmp/aerolab-home \
-            aerolab-runner:latest cluster create \
-              -v "${{ inputs.aerospike_version }}" \
-              -c "${{ inputs.nodes }}" \
-              -n "${{ inputs.cluster_name }}"
+      - name: Create Aerospike cluster
+        run: |
+          export AEROLAB_HOME=/tmp/aerolab-home
+          aerolab cluster create \
+            -v "${{ inputs.aerospike_version }}" \
+            -c "${{ inputs.nodes }}" \
+            -n "${{ inputs.cluster_name }}"
