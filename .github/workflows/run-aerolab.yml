@@ -22,38 +22,14 @@ on:
 jobs:
   run-aerolab:
     runs-on: ubuntu-latest
-
-    services:
-      docker:
-        image: docker:dind
-        options: >-
-          --privileged
-          --env DOCKER_TLS_CERTDIR=
-
-    env:
-      DOCKER_HOST: tcp://localhost:2375
-      DOCKER_TLS_CERTDIR: ""
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v3
 
-      - name: Install dependencies
+      - name: Install curl
         run: sudo apt-get update && sudo apt-get install -y curl
 
-      - name: Download Aerolab .deb (hardcoded)
-        run: |
-          echo "Downloading Aerolab 7.9.0 (amd64)"
-          curl -L -o aerolab.deb https://github.com/aerospike/aerolab/releases/download/7.9.0/aerolab-linux-amd64-7.9.0.deb
-
-      - name: Wait for Docker-in-Docker
-        run: |
-          echo "Waiting for Docker daemon to be ready..."
-          for i in {1..30}; do
-            docker info && break
-            echo "Docker not ready yet... waiting 1s"
-            sleep 1
-          done
+      - name: Download Aerolab .deb
+        run: curl -L -o aerolab.deb https://github.com/aerospike/aerolab/releases/download/7.9.0/aerolab-linux-amd64-7.9.0.deb
 
       - name: Build Aerolab Docker image
         run: |
@@ -73,6 +49,4 @@ jobs:
         run: |
           docker run --privileged --rm aerolab-runner:latest config backend -t docker
           docker run --privileged --rm aerolab-runner:latest cluster create \
-            -v "${{ inputs.aerospike_version }}" \
-            -c "${{ inputs.nodes }}" \
-            -n "${{ inputs.cluster_name }}"
+            -v "8.1.0.1" -c "3" -n "ce"
